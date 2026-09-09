@@ -3,6 +3,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const activitySelect = document.getElementById("activity");
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
+  const loginForm = document.getElementById("login-form");
+  const teacherMessage = document.getElementById("teacher-message");
+  const registrationControls = document.getElementById("registration-controls");
+  const logoutButton = document.getElementById("logout-button");
+  let authHeader = null;
 
   // Function to fetch activities from API
   async function fetchActivities() {
@@ -29,8 +34,11 @@ document.addEventListener("DOMContentLoaded", () => {
               <ul class="participants-list">
                 ${details.participants
                   .map(
-                    (email) =>
-                      `<li><span class="participant-email">${email}</span><button class="delete-btn" data-activity="${name}" data-email="${email}">❌</button></li>`
+                    (email) => `<li><span class="participant-email">${email}</span>${
+                      authHeader
+                        ? `<button class="delete-btn" data-activity="${name}" data-email="${email}" aria-label="Unregister ${email}">Remove</button>`
+                        : ""
+                    }</li>`
                   )
                   .join("")}
               </ul>
@@ -80,6 +88,7 @@ document.addEventListener("DOMContentLoaded", () => {
         )}/unregister?email=${encodeURIComponent(email)}`,
         {
           method: "DELETE",
+          headers: { Authorization: authHeader },
         }
       );
 
@@ -124,6 +133,7 @@ document.addEventListener("DOMContentLoaded", () => {
         )}/signup?email=${encodeURIComponent(email)}`,
         {
           method: "POST",
+          headers: { Authorization: authHeader },
         }
       );
 
@@ -153,6 +163,49 @@ document.addEventListener("DOMContentLoaded", () => {
       messageDiv.classList.remove("hidden");
       console.error("Error signing up:", error);
     }
+  });
+
+  loginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+    const encodedCredentials = btoa(`${username}:${password}`);
+
+    try {
+      const response = await fetch("/auth/login", {
+        method: "POST",
+        headers: { Authorization: `Basic ${encodedCredentials}` },
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.detail || "Login failed");
+      }
+
+      authHeader = `Basic ${encodedCredentials}`;
+      registrationControls.classList.remove("hidden");
+      loginForm.classList.add("hidden");
+      logoutButton.classList.remove("hidden");
+      teacherMessage.textContent = `Logged in as ${result.username}`;
+      teacherMessage.className = "success";
+      fetchActivities();
+    } catch (error) {
+      teacherMessage.textContent = error.message;
+      teacherMessage.className = "error";
+      teacherMessage.classList.remove("hidden");
+    }
+  });
+
+  logoutButton.addEventListener("click", () => {
+    authHeader = null;
+    registrationControls.classList.add("hidden");
+    loginForm.classList.remove("hidden");
+    logoutButton.classList.add("hidden");
+    teacherMessage.textContent = "Logged out";
+    teacherMessage.className = "info";
+    teacherMessage.classList.remove("hidden");
+    fetchActivities();
   });
 
   // Initialize app
